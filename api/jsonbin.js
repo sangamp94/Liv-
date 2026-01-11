@@ -1,40 +1,23 @@
+const axios = require("axios");
+
 const BIN_ID = process.env.JSONBIN_BIN_ID;
 const API_KEY = process.env.JSONBIN_API_KEY;
-
-const BASE_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const BASE_URL = process.env.JSONBIN_BASE_URL;
 
 async function getData() {
-  const res = await fetch(`${BASE_URL}/latest`, {
-    headers: {
-      "X-Master-Key": API_KEY
-    }
+  const res = await axios.get(`${BASE_URL}/b/${BIN_ID}/latest`, {
+    headers: { "X-Master-Key": API_KEY }
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error("JSONBin GET failed: " + text);
-  }
-
-  const json = await res.json();
-  return json.record || { admins: [] };
+  return res.data.record;
 }
 
 async function updateData(data) {
-  const res = await fetch(BASE_URL, {
-    method: "PUT",
+  await axios.put(`${BASE_URL}/b/${BIN_ID}`, data, {
     headers: {
-      "Content-Type": "application/json",
-      "X-Master-Key": API_KEY
-    },
-    body: JSON.stringify(data)
+      "X-Master-Key": API_KEY,
+      "Content-Type": "application/json"
+    }
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error("JSONBin PUT failed: " + text);
-  }
-
-  return res.json();
 }
 
 module.exports = { getData, updateData };
