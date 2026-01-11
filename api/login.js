@@ -11,39 +11,47 @@ module.exports = async function handler(req, res) {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email & password required" });
+      return res.status(400).json({
+        message: "Email and password required"
+      });
     }
 
     const db = await getData();
-    const admin = db.admins.find(a => a.email === email);
+    db.users = Array.isArray(db.users) ? db.users : [];
 
-    if (!admin) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    const user = db.users.find(
+      u => u.email.toLowerCase() === email.toLowerCase()
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
     }
 
-    const ok = await bcrypt.compare(password, admin.password);
-    if (!ok) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({
+        message: "Invalid credentials"
+      });
     }
 
     const token = jwt.sign(
       {
-        adminId: admin.id,
-        academyName: admin.academyName,
-        email: admin.email
+        userId: user.id,
+        email: user.email,
+        plan: user.plan
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
+    return res.json({
       token
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Server error" });
   }
 };
