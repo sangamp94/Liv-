@@ -7,67 +7,48 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { name, email, password } = req.body;
+    const { email, password, name } = req.body;
 
-    // Validation
-    if (!name || !email || !password) {
+    if (!email || !password) {
       return res.status(400).json({
-        success: false,
-        message: "Name, Email and Password are required"
+        message: "Email and password required"
       });
     }
 
     const db = await getData();
-
-    // Ensure users array
     db.users = Array.isArray(db.users) ? db.users : [];
 
-    // Check email exists
-    const userExists = db.users.find(
+    const exists = db.users.find(
       u => u.email.toLowerCase() === email.toLowerCase()
     );
 
-    if (userExists) {
+    if (exists) {
       return res.status(409).json({
-        success: false,
         message: "Email already registered"
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const newUser = {
+    db.users.push({
       id: "USER_" + Date.now(),
-      name,
+      name: name || "User",
       email,
       password: hashedPassword,
-      plan: "FREE",          // FREE / BASIC / PREMIUM
+      plan: "FREE",
       status: "ACTIVE",
-      isVerified: false,
       createdAt: new Date().toISOString()
-    };
+    });
 
-    db.users.push(newUser);
     await updateData(db);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "User registered successfully",
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        plan: newUser.plan
-      }
+      message: "Registration successful"
     });
 
-  } catch (error) {
-    console.error("User Register Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error"
-    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };
