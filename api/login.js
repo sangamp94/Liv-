@@ -1,44 +1,49 @@
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { getData } = require("./jsonbin");
 
 module.exports = async function handler(req, res) {
-  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST")
-    return res.status(405).json({ message: "Method not allowed" });
 
   try {
-    const { email, password } = req.body;
-    if (!email || !password)
+    const body = req.body || {};
+    const { email, password } = body;
+
+    if (!email || !password) {
       return res.status(400).json({ message: "Email & password required" });
+    }
 
     const db = await getData();
-    db.users = Array.isArray(db.users) ? db.users : [];
+    if (!db || !Array.isArray(db.users)) {
+      return res.status(500).json({ message: "DB not working" });
+    }
 
-    const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    const user = db.users.find(u => u.email === email);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
 
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
+    // ⚠️ TEMP: plain password check
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Wrong password" });
+    }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, plan: user.plan },
-      process.env.JWT_SECRET,
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET || "test",
       { expiresIn: "7d" }
     );
 
-    res.json({
+    return res.json({
       token,
-      user: { name: user.name, email: user.email, plan: user.plan }
+      user: { name: user.name, email: user.email }
     });
 
   } catch (e) {
-    console.error("LOGIN ERROR:", e);
-    res.status(500).json({ message: "Server error" });
+    console.error("LOGIN CRASH:", e);
+    return res.status(500).json({ message: e.message });
   }
 };
