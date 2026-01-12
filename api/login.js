@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { getData } from "./jsonbin.js";
 
 export default async function handler(req, res) {
-  // 🔥 CORS
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -14,26 +14,17 @@ export default async function handler(req, res) {
 
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({ message: "Email & password required" });
-    }
 
     const db = await getData();
     db.users = Array.isArray(db.users) ? db.users : [];
 
-    const user = db.users.find(
-      u => u.email.toLowerCase() === email.toLowerCase()
-    );
+    const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, plan: user.plan },
@@ -43,15 +34,11 @@ export default async function handler(req, res) {
 
     return res.json({
       token,
-      user: {
-        name: user.name,
-        email: user.email,
-        plan: user.plan
-      }
+      user: { name: user.name, email: user.email, plan: user.plan }
     });
 
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error("LOGIN ERROR:", e);
     return res.status(500).json({ message: "Server error" });
   }
 }
